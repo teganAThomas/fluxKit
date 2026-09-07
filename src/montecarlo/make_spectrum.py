@@ -10,10 +10,10 @@ import numpy as np
 
 # Athena++ modules
 from . import athena_mc as athenamc
-from .athena_mc import Photons
+from . athena_mc import Photons
 
 try:
-    import screen
+    from . import screener
 except ModuleNotFoundError:
     pass
 
@@ -37,7 +37,8 @@ def main(**kwargs):
     # check for screening function
     screen_name = kwargs.pop('screen')
     if screen_name != 'no_screen':
-        screen_function = getattr(screen, screen_name)
+        screen_obj = screener.Screener()
+        screen_function = getattr(screen_obj, screen_name)
 
     # Read photon list
     reader = athenamc.read_list_generator(infile)
@@ -143,6 +144,13 @@ if __name__ == '__main__':
     parser.add_argument('-yerror',
         action = 'store_true',
         help = 'compute intensity errors')
+    parser.add_argument('-tetrad',
+        action = 'store_true',
+        help = 'transform photons to tetrad frame')
+    parser.add_argument('--spin',
+        type = float,
+        default = 0.0,
+        help = 'black hole spin parameter')
 
     args = parser.parse_args()
     main(**vars(args))

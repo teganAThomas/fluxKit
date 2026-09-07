@@ -13,12 +13,16 @@ from . import MCSpec
 from . import run_multiple_jobs
 from . import Image
 
-def blackbody(frequency,temperature):
+def blackbody(frequency,temperature,redshift_re=None):
     '''Calculate the blackbody spectrum for a given frequency and temperature.'''
     h = cons.h.cgs.value
     kB = cons.k_B.cgs.value
     c = cons.c.cgs.value
-    return (2*h*frequency**3/c**2) / (np.exp(h*frequency/(kB*temperature)) - 1)
+    if redshift_re is not None:
+        freq_shift = 1./np.sqrt(1.-2./redshift_re)
+    else:
+        freq_shift = 1.
+    return (2*h*freq_shift*freq_shift*frequency**3/c**2) / (np.exp(h*freq_shift*frequency/(kB*temperature)) - 1)
 
 def fit_blackbody(freqs,luminosities):
     '''Fit a blackbody to the given spectra.'''
@@ -74,7 +78,7 @@ def plot_spec_ratio(image, ax=None, labels=None, plot_blackbody=False, temperatu
             MC_spec = [MC_spec]
         raise UserWarning('correct handling of frequencies for ratio not done yet')
         for i in range(len(MC_spec)):
-            ax.errorbar(MC_spec[i].freq*frequency_unit*1e3/Units.h_ev,(L*frequencies*lum_unit)/MC_spec[i].lum*lum_unit,yerr=MC_spec[i].lum_err, label=MC_labels[i] if MC_labels is not None else 'Blacklight/MC Spectrum {0}'.format(i),marker='s')
+            ax.errorbar(MC_spec[i].freq*frequency_unit*1e3/Units.h_ev,(L*frequencies*lum_unit)/MC_spec[i].lum*lum_unit,yerr=MC_spec[i].lum_err, label=MC_labels[i] if MC_labels is not None else 'MC Spectrum {0}'.format(i),marker='s')
             
             
     ax.legend()
@@ -83,7 +87,7 @@ def plot_spec_ratio(image, ax=None, labels=None, plot_blackbody=False, temperatu
 
 
 
-def plot_spectra(image, ax=None, labels=None, plot_blackbody=False, temperature=None,area=None, MC_spec=None, MC_spec_args={}, MC_labels=None,freq_units='eV',lum_units='erg'):
+def plot_spectra(image, ax=None, labels=None, plot_blackbody=False,redshift_re=None, temperature=None,area=None, MC_spec=None, MC_spec_args={}, MC_labels=None,freq_units='eV',lum_units='erg'):
     '''Plot the spectra from one or multiple Image objects. Optionally also plot a blackbody spectrum and/or Monte Carlo spectra with error bars.
     
     Inputs:
@@ -128,21 +132,29 @@ def plot_spectra(image, ax=None, labels=None, plot_blackbody=False, temperature=
         L,L_err = image[i].get_luminosity()
         if (ax is None) and i==0:
              ax = plt.gca()
-        print(L*frequencies*lum_unit,L_err*frequencies*lum_unit)
+        #print(L*frequencies*lum_unit,L_err*frequencies*lum_unit)
         #print(frequencies[L_err==0.0]*frequency_unit)
         if(np.count_nonzero(L_err)>0):
             ax.errorbar(frequencies*frequency_unit, L*frequencies*lum_unit,yerr=L_err*frequencies*lum_unit, label=labels[i] if labels is not None else 'Blacklight {0}'.format(i),marker='.',markersize=4)
         else:
             ax.plot(frequencies*frequency_unit, L*frequencies*lum_unit, label=labels[i] if labels is not None else 'Blacklight {0}'.format(i),marker='.',markersize=4)
+        print("blacklight errors: ",L_err*frequencies*lum_unit)
+            #ax.axvline(x=frequencies[np.argmax(L*frequencies*lum_unit)]*frequency_unit, color='b', linestyle='--', label='Blacklight Peak nu = {0:.2e} eV'.format(frequencies[np.argmax(L*frequencies*lum_unit)]*frequency_unit))
+    print("blacklight cum lum: ",integrate_luminosity(L*lum_unit,frequencies))
         
     
     if plot_blackbody:
         if temperature is None:
             temperature = fit_blackbody(frequencies,L)
         bb_freq = np.logspace(np.log10(min(frequencies)), np.log10(max(frequencies)), 100)
-        bb_flux = blackbody(bb_freq, temperature)
+        bb_flux = blackbody(bb_freq, temperature,redshift_re = redshift_re)
+        freq_shift = 1./np.sqrt(1.-2./6.0)
         ax.plot(bb_freq*frequency_unit, bb_flux*bb_freq*lum_unit*area, label='Blackbody (T={0:.2e} K)'.format(temperature))
+        #ax.axvline(x=bb_freq[np.argmax(freq_shift*freq_shift*bb_flux*bb_freq*lum_unit*area)]*frequency_unit, color='gray', linestyle='--', label='Blackbody Peak nu = {0:.2e} eV'.format(bb_freq[np.argmax(bb_flux*bb_freq*lum_unit*area)]*frequency_unit))
     
+        print(np.max(bb_flux*bb_freq*lum_unit*area)/np.max(L*frequencies*lum_unit))
+        print("blackbody cum lum: ",integrate_luminosity(bb_flux*area*lum_unit,bb_freq))
+     
 
     if MC_spec ==None and len(MC_spec_args)==5:
         MC_spec = MCSpec(MC_spec_args['directory'],MC_spec_args['nproc'],nfreq=MC_spec_args['nfreq'],emin=MC_spec_args['emin'],emax=MC_spec_args['emax'])
@@ -158,6 +170,9 @@ def plot_spectra(image, ax=None, labels=None, plot_blackbody=False, temperature=
                     ax.errorbar(MC_spec[i].freq*frequency_unit, MC_spec[i].lum[j]*lum_unit,yerr=MC_spec[i].lum_err[j]*lum_unit, label=MC_labels[i] if MC_labels is not None else  f"MC i={np.arccos((MC_spec[i].mu[j]+0.5)/MC_spec[i].nmu)*180./np.pi:.2f}$ ^\\circ$",marker='s',markersize=4)
                 else:
                     ax.errorbar(MC_spec[i].freq*frequency_unit, MC_spec[i].lum[j]*lum_unit,yerr=MC_spec[i].lum_err[j]*lum_unit, label=MC_labels[i] if MC_labels is not None else  f"MC $\\sum_i$ ",marker='s',markersize=4)
+                    #ax.axvline(x=MC_spec[i].freq[np.argmax(MC_spec[i].lum[j])]*frequency_unit, color='r', linestyle='--', label='MC Peak nu = {0:.2e} eV'.format(MC_spec[i].freq[np.argmax(MC_spec[i].lum[j])]*frequency_unit))
+                print("MC error: ",MC_spec[i].lum_err[j]*lum_unit)
+    
             
             
     ax.legend()
@@ -347,4 +362,8 @@ def plot_3Dgeodesic_positions(geodesics,i,j,coords='cart',stepNum=5):
     plot = k3d.plot()
     plot += plt_line
     return plot
+
+def integrate_luminosity(luminosity, frequencies):
+    '''Integrate the luminosity over frequency to get total luminosity.'''
+    return np.trapezoid(luminosity, frequencies)
 

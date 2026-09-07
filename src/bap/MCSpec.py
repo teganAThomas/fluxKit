@@ -8,6 +8,7 @@ import sys
 sys.path.append("..")
 from montecarlo import joinlists
 from montecarlo import make_spectrum
+from montecarlo import screener
 from montecarlo import spec2txt
 from montecarlo import athena_mc as athenamc
 from . import Units
@@ -15,7 +16,7 @@ from . import Units
 class MCSpec:
     '''Class to store Monte Carlo spectra (including error bars).'''
 
-    def __init__(self,directory,nproc,nfreq=None,emin=None,emax=None,listName=None,nout=1,outPath=None,overwrite=False,specName=None,mu=['sum']):
+    def __init__(self,directory,nproc,nfreq=None,emin=None,emax=None,listName=None,nout=1,outPath=None,overwrite=False,specName=None,mu=['sum'],screen='no_screen'):
         '''Initialize the MCSpec object by loading the spectra from the specified directory.'''
         
         if directory[-3:]=='txt':
@@ -60,12 +61,11 @@ class MCSpec:
                     listArgs = {'basename': os.path.join(directory,listName), 'nproc': nproc, 'start': 0, 'end': nout-1, 'skip': True,'multi_out': False, 'outfile': outfile, 'skip': False, 'rm': False}
                 joinlists.main(**listArgs)
             
-            if not (os.path.isfile(specFile) or overwrite) and specName == None:
+            if (not os.path.isfile(specFile) or overwrite) and specName == None:
                 #go from list file to spec file
-                specArgs = {'infile':outfile,'nx':nfreq,'xmin':emin,'xmax':emax,'nmu':1,'mumin':0,'mumax':1,'phimin':0,'phimax':2*np.pi,'anglebin':'cartesian','xaxis':'ev','linearx':False,'calclum':False,'screen':'no_screen','outfile':None,'yerror':True}
+                specArgs = {'infile':outfile,'nx':nfreq,'xmin':emin,'xmax':emax,'nmu':1,'mumin':0,'mumax':1,'phimin':0,'phimax':2*np.pi,'anglebin':'cartesian','xaxis':'ev','linearx':False,'calclum':True,'screen':screen,'outfile':None,'yerror':True,'tetrad':False,'spin':0.0}
                 make_spectrum.main(**specArgs)
             elif specName is not None:
-                print(specName)
                 specFile = specName
             
             spectrum = athenamc.read_spectrum(specFile)
