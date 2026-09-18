@@ -5,6 +5,7 @@ import scipy
 from scipy.optimize import curve_fit
 import matplotlib.colors as colors
 from matplotlib.colors import LogNorm
+from matplotlib.colors import SymLogNorm
 from matplotlib.axes import Axes
 from matplotlib.image import AxesImage
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -196,8 +197,7 @@ def plot_manytimes_spectra(outfiles, outputFig, plot_blackbody=False, temperatur
     plt.xscale('log')
     plt.savefig(outputFig)
 
-def plot_image(image,image_name,freq=0,ax=None,axes='rg',logc=False,cmin=None,cmax=None,level=0,title=None):
-    
+def plot_image(image,image_name,freq=0,ax=None,axes='rg',logc=False,cmin=None,cmax=None,level=0,title=None,cmap='inferno'):
     if axes == 'rg' or (axes is None and image.mass_msun is None):
         half_width = 0.5 * image.width_rg
         scale_exponent = int('{0:24.16e}'.format(half_width).split('e')[1])
@@ -289,9 +289,9 @@ def plot_image(image,image_name,freq=0,ax=None,axes='rg',logc=False,cmin=None,cm
         ax = plt.gca()
     
     if logc:
-        colorpic =ax.imshow(zeroPic,extent=extent,norm=colors.LogNorm(vmin=cmin,vmax=cmax),origin='lower',cmap='inferno')
+        colorpic =ax.imshow(zeroPic,extent=extent,norm=colors.LogNorm(vmin=cmin,vmax=cmax),origin='lower',cmap=cmap)
     else:
-        colorpic =ax.imshow(zeroPic,extent=extent,origin='lower',cmap='inferno')
+        colorpic =ax.imshow(zeroPic,extent=extent,origin='lower',cmap=cmap,vmin=cmin,vmax=cmax)
 
     # Plot adaptive image
     for l in range(1, level + 1):
@@ -311,10 +311,11 @@ def plot_image(image,image_name,freq=0,ax=None,axes='rg',logc=False,cmin=None,cm
     ax.set_ylabel(y_label)
 
     #TO DO: add implementation to include proper title
+    titles = {'I': '$I_\\nu$', 'Q': '$Q_\\nu$', 'U': '$U_\\nu$', 'V': '$V_\\nu$','sigma_I':'$\\sigma_I$','tau':'$\\tau$','emission':'$j_\\nu$'}
     if title is not None:
         ax.set_title(title)
     else:
-        ax.set_title(f"$I_\\nu$ at {image.frequencies[freq]*Units.h_ev:.2e} eV")
+        ax.set_title(f"{titles.get(image_name,image_name)} at {image.frequencies[freq]*Units.h_ev:.2e} eV")
     return colorpic
 
 

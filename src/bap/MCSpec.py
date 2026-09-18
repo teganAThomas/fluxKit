@@ -12,7 +12,7 @@ from montecarlo import screener
 from montecarlo import spec2txt
 from montecarlo import athena_mc as athenamc
 from . import Units
-
+#tegan: just fix the whole specname thing and only use the check I built
 class MCSpec:
     '''Class to store Monte Carlo spectra (including error bars).'''
 
@@ -37,31 +37,37 @@ class MCSpec:
                 
                 nfreq,emin,emax = self.read_inputFile(inputFile[0])
             
-            if listName is None and specName == None:
+            specFile = glob.glob(os.path.join(directory,'*.spec'))
+            if len(specFile) > 0:
+                specFile = specFile[0]
+            else:
+                specFile = os.path.join(directory,'spectrum.spec')
+            if listName is None and (not os.path.isfile(specFile) or overwrite):
                 listFiles = glob.glob(os.path.join(directory,'*.list'))
                 
                 fileNameFormat = listFiles[0].split('/')[-1].split('.')
                 outIndex = fileNameFormat.index('out1')
                 listName = '.'.join(fileNameFormat[:outIndex+1])
 
-            if outPath is None and specName == None:
+            if outPath is None and (not os.path.isfile(specFile) or overwrite):
                 outfile = os.path.join(directory,listName+".list")
                 specFile = os.path.join(directory,listName+".spec")
                 txtFile = os.path.join(directory,listName+".txt")
-            elif specName == None:
+            elif specName == None and (not os.path.isfile(specFile) or overwrite):
                 if not os.path.isdir(outPath):
                     os.makedirs(outPath)
                 outfile = os.path.join(outPath,listName+".list")
                 specFile = os.path.join(outPath,listName+".spec")
                 txtFile = os.path.join(outPath,listName+".txt")
-            if (not os.path.isfile(outfile) or overwrite) and specName == None:
+            
+            if (not os.path.isfile(outfile) or overwrite or not os.path.isfile(specFile)) and specName == None and (not os.path.isfile(specFile) or overwrite):
                 if nout == 1:
                     listArgs = {'basename': os.path.join(directory,listName), 'nproc': nproc, 'start': 0, 'end': 0, 'skip': True,'multi_out': False, 'outfile': outfile, 'skip': False, 'rm': False}
                 else:
                     listArgs = {'basename': os.path.join(directory,listName), 'nproc': nproc, 'start': 0, 'end': nout-1, 'skip': True,'multi_out': False, 'outfile': outfile, 'skip': False, 'rm': False}
                 joinlists.main(**listArgs)
             
-            if (not os.path.isfile(specFile) or overwrite) and specName == None:
+            if (not os.path.isfile(specFile) or overwrite or not os.path.isfile(specFile)) and specName == None:
                 #go from list file to spec file
                 specArgs = {'infile':outfile,'nx':nfreq,'xmin':emin,'xmax':emax,'nmu':1,'mumin':0,'mumax':1,'phimin':0,'phimax':2*np.pi,'anglebin':'cartesian','xaxis':'ev','linearx':False,'calclum':True,'screen':screen,'outfile':None,'yerror':True,'tetrad':False,'spin':0.0}
                 make_spectrum.main(**specArgs)
